@@ -1,0 +1,257 @@
+Reklam Araçları ile Satış Oranı İnceleme
+######################################################
+#Gereken Kütüphaneler:
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+pd.set_option('display.float_format', lambda x: '%.2f' % x)
+#virgülden sonra 2 basamağı getir
+from sklearn.linear_model import LinearRegression # sklearn : makine öğrenmesinde kullanılması gereken kütüphanedir.
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import train_test_split, cross_val_score
+
+
+######################################################
+# Veri Hazırlığı
+######################################################
+
+df = pd.read_csv("advertising.csv")
+df.shape # verinin boyutunu gösterir
+
+X = df[["TV"]] # lineer regresyonun daha iyi anlaşılması için 4 değişkenden 1 bağımlı bir bağımsız değişkene indirelim, ilk önce basit lineer üzerinde çalışalım
+y = df[["sales"]] # bağımlı değişken,y: sales bağımsız,x: TV
+
+
+##########################
+# Model
+##########################
+
+reg_model = LinearRegression().fit(X, y) #model kurma işlemi yapıldı, veriyi bölmeden direkt modeli kurduk
+
+# y_hat = b + w*TV  #tek değişkene ait tahmin formülü b ve w yu bulalım. basir Lineer reg formülü y= b+w.xi
+
+# sabit (b - bias)
+reg_model.intercept_[0] # intercept_ = bias yani bu b yi buluyor. 0 koymamızın nedeni arraydan çıksın diye
+
+# tv'nin katsayısı (w1) # coef ile w yu buluyoruz iç değere erişmek için 0 0 yazdık
+reg_model.coef_[0][0]
+
+
+##########################
+# Tahmin
+##########################
+
+# 100 birimlik TV harcaması olsa ne kadar satış olması beklenir?
+
+reg_model.intercept_[0] + reg_model.coef_[0][0]*100  #
+
+# 200 birimlik tv harcaması olsa ne kadar satış olur?
+
+reg_model.intercept_[0] + reg_model.coef_[0][0]*200 # b+ w.TV
+
+df.describe().T
+
+
+# Modelin Görselleştirilmesi
+g = sns.regplot(x=X, y=y, scatter_kws={'color': 'b', 's': 9},
+                ci=False, color="r") # Cİ: Tölerans değeri ekleme b =gerçek değer rengi mavi
+
+g.set_title(f"Model Denklemi: Sales = {round(reg_model.intercept_[0], 2)} + TV*{round(reg_model.coef_[0][0], 2)}")
+# ana başlık  regresyonun iki basamağını al, tvnin virgülden sonra iki basamağı al gibi bir fonk yazdık
+g.set_ylabel("Satış Sayısı") #y= satış x= tv harcaması
+g.set_xlabel("TV Harcamaları")
+plt.xlim(-10, 310) # x -10 dan 310 a kadar gitsin
+plt.ylim(bottom=0) # y 0 dan başlasın grafikte
+plt.show()
+
+
+##########################
+# Tahmin Başarısı
+##########################
+
+# MSE gerçek- tahmin karesi toplam ort
+y_pred = reg_model.predict(X) # elimizdeki salesi bilmiyormuş gibi soruyoruz. bağımsızı verdik y yi tahmin etti bu değeri de y predde tutuyor
+mean_squared_error(y, y_pred) # gerçek y ile tahmin y pred  arasındaki mse yi buldu
+# 10.51
+y.mean() #14 ortalama 14 birim satış yapıyoruz ama model 10 birimlik hata payı veriyor bu çok fazla örn 14 sattım modelin tahmini 4 olacaktı
+y.std() #5
+
+# RMSE
+np.sqrt(mean_squared_error(y, y_pred))
+# 3.24
+
+# MAE
+mean_absolute_error(y, y_pred)
+# 2.54
+
+# R-KARE
+reg_model.score(X, y) #televizyon değişkeninin satışa olan etkisi, değişken sayısı arttıkça artar tv yanında int afiş vs gibi değişkenlerin gelmesi modelin daha iyi anlamasına yol açacaktır
+# 0.61
+
+######################################################
+# Multiple Linear Regression
+######################################################
+
+df = pd.read_csv("advertising.csv")
+
+X = df.drop('sales', axis=1) # xte sadece bağımsız değişkenler bulunsun bu sebeple salesi silelim
+
+y = df[["sales"]] # y de de sales bağımlı değişken kalsın sadece
+
+
+##########################
+# Model
+##########################
+#model doğrulama işlemi kullanacağız yani eğitim ve test olarak böleceğiz Holdout kullanalım
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=1) 
+# xtrain ve y train sayısı eşittir ve x test y test aynı xtest tüm verinin ½20 si
+y_test.shape
+y_train.shape
+
+reg_model = LinearRegression().fit(X_train, y_train)
+#modeli eğitim seti üzerinde eğittik
+# sabit (b - bias)
+reg_model.intercept_
+
+# bias değeri tektir
+# coefficients (w - weights)
+reg_model.coef_
+
+#3 ağırlık var her bağımsız değişkene 1 adet
+
+##########################
+# Tahmin
+##########################
+
+# Aşağıdaki gözlem değerlerine göre satışın beklenen değeri nedir?
+
+# TV: 30
+# radio: 10
+# newspaper: 40
+
+# 2.90
+# 0.0468431 , 0.17854434, 0.00258619
+
+# Sales = 2.90  + TV * 0.04 + radio * 0.17 + newspaper * 0.002
+
+2.90794702 + 30 * 0.0468431 + 10 * 0.17854434 + 40 * 0.00258619
+
+yeni_veri = [[30], [10], [40]]
+yeni_veri = pd.DataFrame(yeni_veri).T
+
+reg_model.predict(yeni_veri)
+
+##########################
+# Tahmin Başarısını Değerlendirme
+##########################
+
+# Train RMSE 
+y_pred = reg_model.predict(X_train) #x train değerlerini verdik ve y traini tahmin etmesini istedik tahmini y pred olarak tuttuk
+np.sqrt(mean_squared_error(y_train, y_pred)) # gerçek değer olan y trainle tahmini değer y predleri karşılaştırarak rmse hesaplandı
+# 1.73
+
+# TRAIN RKARE
+reg_model.score(X_train, y_train) # basit lineerde tek bağımsız olduğu için r2 değeri daha yüksekti şimfi birkaç değişken daha eklenerem r^2 değeri düşürüldü bağımsız değişken ekleyerek modeli makinaya daha iyi anlatmış olduk
+
+# Test RMSE # aynı işlemler test için de yapıldı
+y_pred = reg_model.predict(X_test)
+np.sqrt(mean_squared_error(y_test, y_pred))
+# 1.41
+
+# Test RKARE
+reg_model.score(X_test, y_test)
+
+
+# 10 Katlı CV RMSE
+np.mean(np.sqrt(-cross_val_score(reg_model,
+                                 X,
+                                 y,
+                                 cv=10,
+                                 scoring="neg_mean_squared_error")))
+
+# 1.69
+
+
+# 5 Katlı CV RMSE
+np.mean(np.sqrt(-cross_val_score(reg_model,
+                                 X,
+                                 y,
+                                 cv=5,
+                                 scoring="neg_mean_squared_error")))
+# 1.71
+
+
+
+
+######################################################
+# Simple Linear Regression with Gradient Descent from Scratch
+######################################################
+#gradient formülünü kod olarak yazdık
+# Cost function MSE
+def cost_function(Y, b, w, X):
+    m = len(Y)
+    sse = 0
+
+    for i in range(0, m):
+        y_hat = b + w * X[i]
+        y = Y[i]
+        sse += (y_hat - y) ** 2
+
+    mse = sse / m
+    return mse
+
+
+# update_weights
+def update_weights(Y, b, w, X, learning_rate):
+    m = len(Y)
+    b_deriv_sum = 0
+    w_deriv_sum = 0
+    for i in range(0, m):
+        y_hat = b + w * X[i]
+        y = Y[i]
+        b_deriv_sum += (y_hat - y)
+        w_deriv_sum += (y_hat - y) * X[i]
+    new_b = b - (learning_rate * 1 / m * b_deriv_sum)
+    new_w = w - (learning_rate * 1 / m * w_deriv_sum)
+    return new_b, new_w
+
+
+# train fonksiyonu
+def train(Y, initial_b, initial_w, X, learning_rate, num_iters):
+
+    print("Starting gradient descent at b = {0}, w = {1}, mse = {2}".format(initial_b, initial_w,
+                                                                   cost_function(Y, initial_b, initial_w, X)))
+
+    b = initial_b
+    w = initial_w
+    cost_history = []
+
+    for i in range(num_iters):
+        b, w = update_weights(Y, b, w, X, learning_rate)
+        mse = cost_function(Y, b, w, X)
+        cost_history.append(mse)
+
+
+        if i % 100 == 0:
+            print("iter={:d}    b={:.2f}    w={:.4f}    mse={:.4}".format(i, b, w, mse))
+
+
+    print("After {0} iterations b = {1}, w = {2}, mse = {3}".format(num_iters, b, w, cost_function(Y, b, w, X)))
+    return cost_history, b, w
+
+
+df = pd.read_csv("datasets/advertising.csv")
+
+X = df["radio"]
+Y = df["sales"]
+
+# hyperparameters
+learning_rate = 0.001
+initial_b = 0.001
+initial_w = 0.001
+num_iters = 100000
+
+cost_history, b, w = train(Y, initial_b, initial_w, X, learning_rate, num_iters)
+
